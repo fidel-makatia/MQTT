@@ -7,15 +7,14 @@
 
 
 #include <avr/io.h>
+#include "Timer.h"
 #include "mqtt.h"
 #include "_uart.h"
 #include "GSM_LIBRARY.h"
 #include <avr/interrupt.h>
 #include <stdlib.h>
 #include <string.h>
-uint8_t encodedbyte;
 uint8_t mqtt_message[127];
-int mqttMessageLength = 0;
 int SetupComplete;
 int sendDataComplete; 
 int data_is_sending=1;
@@ -37,23 +36,27 @@ void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIP
 char Response[10];
 char Response2[10];
 char Response3[10];
-const char MQTTClientID[20]="Mala";
-const char MQTTTopic[30]="Burukenge";
-const char MQTTProtocolName[10]="MQIsdp";
+unsigned long datalength,checksum,rlength;
+unsigned short topicLength;
+unsigned short topicLength2;
+unsigned short MQTTProtocolNameLength;
+unsigned short MQTTClientIDLength;
+unsigned short MQTTUsernameLength;
+unsigned short MQTTPasswordLength;
+unsigned short MQTTTopicLength;
+const char *MQTTClientID = "KTT";
+const char *MQTTTopic= "sambul_1";
+const char *MQTTTopic2= "sambul_2";
+const char *MQTTProtocolName = "MQIsdp";
 const char MQTTLVL = 0x03;
 const char MQTTFlags = 0xC2;
-const unsigned int MQTTKeepAlive=60;
-const char MQTTUsername[30]="fyixwgqw";
-const char MQTTPassword[35]="gxkSJ6W-4qdd";
+const unsigned int MQTTKeepAlive = 60;
+const char *userName = "fyixwgqw";
+const char *password = "gxkSJ6W-4qdd";
 const char MQTTQOS = 0x00;
 const char MQTTPacketID = 0x0001;
-int MQTTProtocolNameLength;
-int MQTTClientIDLength;
-int MQTTUsernameLength;
-int MQTTPasswordLength;
-int datalength;
-int X;
-int topicLength;
+long X;
+unsigned char encodedByte;
 unsigned int Counter;
 char str[250];
 unsigned char topic[30];
@@ -61,25 +64,14 @@ unsigned char topic[30];
 #define F_CPU 16000000UL
 int main(void)
 {
-	uart_0_init(38400);
-	//uart_2_init(38400);
-	//uart_3_init(115200);
-	 TCCR1A = 0;
-	 TCCR1B = 0;
-     TCCR1B |= (5<<CS10);
-	 TIMSK1 |= 1<<TOIE1;
-	 TCNT1 = 49911; 
+	uart_0_init(19200);
+	uart_1_init(38400);
 	 TCCR3A = 0;
 	 TCCR3B = 0;
 	 TCCR3B |= (5<<CS30);
 	 TIMSK3 |= 1<<TOIE3;
 	 TCNT3 = 49911;
 	 
-	 TCCR5A = 0;
-	 TCCR5B = 0;
-     TCCR5B |= (5<<CS50);
-	 TIMSK5 |= 1<<TOIE5;
-	 TCNT5 = 49911;
 	sei();
 	
     while(1)
@@ -90,9 +82,10 @@ int main(void)
 			{
 			
 				Set_Up_Connection("safaricom","saf","data","m11.cloudmqtt.com","19781");
+				
 				if(Retry_1 == 10)
 				{
-					
+					uart_0_clear_buffer();
 					setup_Position=0;
 					data_is_sending=1;
 					Retry_1=0;
@@ -105,11 +98,12 @@ int main(void)
 					data_is_sending=1;
 				}
 			}
-			else if(!connectingServer)
+			else if(!connectServerComplete)
 			{
-				connectMqqt();
+				connectMQTT();
 				if(Retry_3 == 10)
 				{
+					uart_0_clear_buffer();
 					serverConnectPosition=0;
 					connectingServer=1;
 					Retry_3=0;
@@ -125,7 +119,7 @@ int main(void)
 			}
 			else if(!sendDataComplete)
 			{
-				Send_Data();
+				publishMQTT();
 				if(Retry_2 == 10)
 				{
 					sendDataPosition=0;
@@ -142,11 +136,7 @@ int main(void)
 			}
 	}				  
 }
-ISR(TIMER1_OVF_vect)
-{
-	TCNT1 = 49911;
-	counter_K++;
-}
+
 ISR(TIMER3_OVF_vect)
 {
 	TCNT3 = 49911;
@@ -169,22 +159,121 @@ ISR(TIMER3_OVF_vect)
 		connectingServer=1;
 	}
 }
-ISR(TIMER5_OVF_vect)
+ISR(USART1_RX_vect)
 {
-	TCNT5 = 49911;
-	uart_counter2++;
-	if(uart_counter2 == 2)
+	uart_0_read();
+}
+void publishMQTT(void)
+{
+	if(dataTransfer == 1)
 	{
-		dataTransfer = 1;
+		dataTransfer=0;
+		uart_counter2=0;
+		memset(str,0,sizeof(str));
+		topicLength = sprintf((char*)topic, MQTTTopic);
+		datalength = sprintf((char*)str,"%s%s",topic,"Counter$$%%^&&&&**&^%$#");
+		if(sendDataPosition==0)
+		{
+			Put_AT_CIPSEND();
+			strcpy(Response2,">");
+		}
+		if(sendDataPosition==1)
+		{
+			uart_0_write(0x30);
+			X=datalength+2;
+			do
+			{
+				encodedByte = X % 128;
+				X= X/128;
+				if(X>0)
+				{
+					encodedByte |= 128;
+				}
+				uart_0_write(encodedByte);
+			} while (X>0);
+			uart_0_write(topicLength >> 8);
+			uart_0_write(topicLength & 0xFF);
+			uart_0_write(str);
+			uart_0_print_char(0x1A);
+			uart_0_print_char(26);
+			strcpy(Response2,"SEND OK");
+		}
+		if(sendDataPosition == 2)
+		{
+			uart_0_clear_buffer();
+			sendDataPosition=0;
+			dataTransfer=0;
+			sendDataComplete=1;
+		}
 	}
 	
 }
-ISR(USART0_RX_vect)
+void connectMQTT(void)
 {
-	uart_0_read();
-	//uart_0_write("inu\n");
+
+	if(connectingServer==1)
+	{
+		MQTTProtocolNameLength = strlen(MQTTProtocolName);
+		MQTTClientIDLength = strlen(MQTTClientID);
+		MQTTUsernameLength = strlen(userName);
+		MQTTPasswordLength = strlen(password);
+		datalength = MQTTProtocolNameLength + 2 + 4 + MQTTClientIDLength + 2 + MQTTUsernameLength;
+		connectingServer=0;
+		counter_1=0;
+		if(serverConnectPosition==0)
+		{
+			Put_AT_CIPSEND();
+			strcpy(Response3,">");
+		}
+		if(serverConnectPosition==1)
+		{
+			uart_0_write(0x10);
+			X=datalength;
+			do
+			{
+				encodedByte = X % 128;
+				if(X>0)
+				{
+					encodedByte |= 128;
+				}
+				uart_0_write(encodedByte);
+			}
+			while(X>0);
+			uart_0_write(MQTTProtocolNameLength >> 8);
+			uart_0_write(MQTTProtocolNameLength & 0xFF);
+			uart_0_write(MQTTProtocolName);
+			
+			uart_0_write(MQTTLVL);
+			uart_0_write(MQTTFlags);
+			uart_0_write(MQTTKeepAlive >> 8);
+			uart_0_write(MQTTKeepAlive & 0xFF);
+			
+			uart_0_write(MQTTClientIDLength >> 8);
+			uart_0_write(MQTTClientIDLength & 0xFF);
+			uart_0_write(MQTTClientID);
+			
+			uart_0_write(MQTTUsernameLength >> 8);
+			uart_0_write(MQTTUsernameLength & 0xFF);
+			uart_0_write(userName);
+			
+			uart_0_write(MQTTPasswordLength >> 8);
+			uart_0_write(MQTTPasswordLength & 0xFF);
+			uart_0_write(password);
+			
+			uart_0_write(0x1A);
+			uart_0_print_char(26);
+			strcpy(Response3,"SEND OK");
+		}
+		if(serverConnectPosition==2)
+		{
+			uart_0_clear_buffer();
+			serverConnectPosition=0;
+			connectServerComplete=1;
+			connectingServer=0;
+		}
+	}
 }
-/*void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIPAddress, char *PortNumber)
+void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIPAddress, char *PortNumber)
 {
 	if(data_is_sending==1)
 	{
@@ -237,127 +326,6 @@ ISR(USART0_RX_vect)
 			setup_Position = 0;
 			SetupComplete = 1;
 			data_is_sending=0;
-		}
-	}
-}*/
-void connectMqqt(void)
-{	
-	MQTTProtocolNameLength=strlen(MQTTProtocolName);
-	MQTTClientIDLength=strlen(MQTTClientID);
-	MQTTUsernameLength=strlen(MQTTUsername);
-	MQTTPasswordLength=strlen(MQTTPassword);
-	datalength=MQTTProtocolNameLength+2+4+MQTTClientIDLength+2+MQTTUsernameLength+2+MQTTPasswordLength;
-	X=datalength;
-	
-	
-	if(connectingServer==1)
-	{
-		counter_1=0;
-		connectingServer=0;
-		if(serverConnectPosition==0)
-		{
-			Put_AT_CIPSEND();
-			strcpy(Response3,">");
-			
-		}
-		if(serverConnectPosition==1)
-		{
-			
-			do
-			{
-				encodedbyte = X%128;
-				X=X/128;
-				if(X>0)(encodedbyte |= 128 );
-				uart_0_write_byte(encodedbyte);
-			}
-			while(X>0);
-			uart_0_write_byte(MQTTProtocolNameLength >> 8);
-			uart_0_write_byte(MQTTProtocolNameLength & 0xFF);
-			uart_0_write(MQTTProtocolName);
-			
-			uart_0_write_byte(MQTTLVL);
-			uart_0_write_byte(MQTTFlags);
-			uart_0_write_byte(MQTTKeepAlive >> 8);
-			uart_0_write_byte(MQTTKeepAlive & 0xFF);
-			
-			uart_0_write_byte(MQTTClientIDLength >> 8);
-			uart_0_write_byte(MQTTClientIDLength & 0xFF);
-			uart_0_write(MQTTClientID);
-			
-			uart_0_write_byte(MQTTUsernameLength >> 8);
-			uart_0_write_byte(MQTTUsernameLength & 0xFF);
-			uart_0_write(MQTTUsername);
-			
-			uart_0_write_byte(MQTTPasswordLength >> 8);
-			uart_0_write_byte(MQTTPasswordLength & 0xFF);
-			uart_0_write(MQTTPassword);
-			
-			uart_0_print_char(26);
-			strcpy(Response3,"SEND OK");
-			
-		}
-		if(serverConnectPosition==2)
-		{
-			uart_0_clear_buffer();
-			connectServerComplete=1;
-			serverConnectPosition=0;
-		}
-	}
-}
-
-void Send_Data(void)
-{
-	memset(str,0,250);
-	topicLength = sprintf((char*)topic,MQTTTopic);
-	datalength = sprintf((char*)str,"%s%u",topic,Counter);
-	if(dataTransfer==1)
-	{
-		dataTransfer=0;
-		uart_counter2 = 0;
-		if(sendDataPosition == 0)
-		{
-			Put_AT_CIPSEND();
-			strcpy(Response2,">");
-			
-		}
-		if(sendDataPosition == 1)
-		{
-			
-			X=datalength+2;
-			do
-			{
-				encodedbyte = X%128;
-				X=X/128;
-				if(X>0)(encodedbyte |= 128);
-				uart_0_write_byte(encodedbyte);
-			}
-			while(X>0);
-			uart_0_write_byte(topicLength >> 8);
-			uart_0_write_byte(topicLength & 0xFF);
-			uart_0_write(str);
-			uart_0_print_char(26);
-			/*uart_0_write_byte(0x30);
-			uart_0_write_byte(0x13);
-			uart_0_write_byte(0x00);
-			uart_0_write_byte(0x08);
-			uart_0_write_byte(0x76);
-			uart_0_write_byte(0x61);
-			uart_0_write_byte(0x6C);
-			uart_0_write_byte(0x65);
-			uart_0_write_byte(0x74);
-			uart_0_write_byte(0x72);
-			uart_0_write_byte(0x6F);
-			uart_0_write_byte(0x6E);
-			uart_0_write_byte(0x00);*/
-			strcpy(Response2,"SEND OK");
-		}
-		
-		if(sendDataPosition==2)
-		{
-			uart_0_clear_buffer();
-			sendDataComplete=1;
-			//SetupComplete=0;
-			sendDataPosition=0;
 		}
 	}
 }
