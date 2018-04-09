@@ -67,7 +67,7 @@ unsigned char topic[30];
 int main(void)
 {
 	uart_0_init(38400);
-
+	
 	 TCCR3A = 0;
 	 TCCR3B = 0;
 	 TCCR3B |= (5<<CS30);
@@ -88,7 +88,6 @@ int main(void)
 				
 				if(Retry_1 == 10)
 				{
-					uart_0_clear_buffer();
 					setup_Position=0;
 					data_is_sending=1;
 					Retry_1=0;
@@ -96,19 +95,27 @@ int main(void)
 			  else if(strstr(uart_0_buffer,Response)){
 					//uart_0_write(uart_0_buffer);
 					Retry_1=0;
-					uart_0_clear_buffer();
 					setup_Position++;
+					uart_0_clear_buffer();
 					data_is_sending=1;
 				}
 			}
 			else if(!connectServerComplete)
 			{
 				connectMQTT();
+				//_delay_ms(500);
 			    if(strstr(uart_0_buffer,Response3))
 				{
+					//char dr[2];
+					
 					Retry_3=0;
-					uart_0_clear_buffer();
 					serverConnectPosition++;
+					uart_0_clear_buffer();
+					//_delay_ms(500);
+					//itoa(serverConnectPosition,dr,10);
+					//uart_0_write("Resp: ");
+					//uart_0_write(dr);
+					//uart_0_write("\n");
 					//connectingServer=1;
 					
 				}
@@ -119,8 +126,8 @@ int main(void)
 				if(strstr(uart_0_buffer,Response2))
 				{
 					Retry_2=0;
-					uart_0_clear_buffer();
 					sendDataPosition++;
+					uart_0_clear_buffer();
 					//dataTransfer=1;
 				}
 			}
@@ -161,6 +168,11 @@ void publishMQTT(void)
 		uart_counter2=0;
 		if(sendDataPosition==0)
 		{
+			Put_AT_CIPSEND();
+			strcpy(Response2,">");
+		}
+		if(sendDataPosition==1)
+		{
 			memset(str, 0, sizeof(str));
 			topicLength = sprintf((char*)topic, MQTTTopic);
 			datalength = sprintf((char*)str, "%s%s", topic, "Counter$$%%^&&&&**&^%$#");
@@ -181,14 +193,14 @@ void publishMQTT(void)
 			uart_0_write_byte(topicLength >> 8);
 			uart_0_write_byte(topicLength & 0xFF);
 			uart_0_write(str);
-			uart_0_write("");
+			uart_0_write("\r");
+			uart_0_print_char(26);
 			strcpy(Response2,"SEND OK");
 		}
 			
-		if(sendDataPosition == 1)
+		else
 		{
-			uart_0_clear_buffer();
-			uart_0_print_char(26);
+			
 			sendDataPosition=0;
 			dataTransfer=0;
 			sendDataComplete=1;
@@ -198,6 +210,7 @@ void publishMQTT(void)
 }
 void connectMQTT(void)
 {
+	
 
 	if(connectingServer==1)
 	{
@@ -208,9 +221,10 @@ void connectMQTT(void)
 			Put_AT_CIPSEND();
 			strcpy(Response3,">");
 		}
-		if(serverConnectPosition==1)
+	   else if(serverConnectPosition==1)
 		{
 			uart_0_clear_buffer();
+			//uart_0_write("jnjnj....\n");
 			uart_0_write_byte(0x10);
 			MQTTProtocolNameLength = strlen(MQTTProtocolName);
 			MQTTClientIDLength = strlen(MQTTClientID);
@@ -251,16 +265,16 @@ void connectMQTT(void)
 			uart_0_write_byte(MQTTPasswordLength >> 8);
 			uart_0_write_byte(MQTTPasswordLength & 0xFF);
 			uart_0_write(password);
-			uart_0_write("\r");
-			_delay_ms(1000);
 			uart_0_print_char(26);
-			strcpy(Response3,"SEND OK");
-			
+			strcpy(Response3,"OK");
+			serverConnectPosition=2;
+			_delay_ms(500);
 		}
 		
-		if(serverConnectPosition==2)
+		else
 		{
-			
+			//uart_0_write("+++");
+			//uart_0_print_char(13);
 			serverConnectPosition=0;
 			connectServerComplete=1;
 			connectingServer=0;
@@ -310,12 +324,10 @@ void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIP
 			Put_AT_CIPSTART(serverIPAddress,PortNumber);
 			strcpy(Response,"OK");
 		}
-		if(setup_Position ==7)
+	
+		if(setup_Position == 7)
 		{
-			strcpy(Response,"OK");
-		}
-		if(setup_Position == 8)
-		{
+			//uart_0_write("position 7");
 			uart_0_clear_buffer();
 			setup_Position = 0;
 			SetupComplete = 1;

@@ -1,3 +1,9 @@
+/*
+ * GSM_LIBRARY.h
+ *
+ * Created: 25/03/2018 19:43:26
+ *  Author: Oki
+ */ 
 #include "_uart.h"
 #include <avr/io.h>
 #include <util/delay.h>
@@ -16,30 +22,35 @@ bool Get_AT_Response(const char * response)
 /*											TCP-IP COMMANDS 																	*/
 void Put_AT_CIPSHUT(void)
 {
+		uart_0_clear_buffer();
 		uart_0_write("AT+CIPSHUT");
 		uart_0_print_char(13);
 		uart_0_write("\n");
 }
 void PUT_AT_CIPMODE(void)
 {
+	uart_0_clear_buffer();
 	uart_0_write("AT+CIPMODE=1");
-	uart_3_print_char(13);
+	uart_0_print_char(13);
 	uart_0_write("\n");
 }
 void Put_AT_CIPMUX(void)
 {
+		uart_0_clear_buffer();
 		uart_0_write("AT+CIPMUX=0");
 		uart_0_print_char(13);
 		uart_0_write("\n");
 }
 void Put_AT_CGATT(void)
 {
+		uart_0_clear_buffer();
 		uart_0_write("AT+CGATT=1");
 		uart_0_print_char(13);
 		uart_0_write("\n");
 }
 void PUT_ATT_HTPPINIT()
 {
+	uart_0_clear_buffer();
 	uart_0_write("AT+HTTPINIT");
 	uart_0_print_char(13);
 	uart_0_write("\n");
@@ -47,6 +58,7 @@ void PUT_ATT_HTPPINIT()
 void PUT_ATT_HTTPARA()
 {
 
+	uart_0_clear_buffer();
 	uart_0_write("AT+HTTPPARA=");
 	uart_0_print_char(34);
 	uart_0_write("CID");
@@ -59,7 +71,7 @@ void PUT_ATT_HTTPARA()
 
 void Put_AT_CSTT(char *APN, char *userName, char *password)
 {
-		
+		uart_0_clear_buffer();
 		uart_0_write("AT+CSTT=");
 		uart_0_print_char(34);  //QUOTATION MARK "
 		uart_0_write(APN);
@@ -77,13 +89,14 @@ void Put_AT_CSTT(char *APN, char *userName, char *password)
 }
 void Put_AT_CIICR(void)
 {
-		
+		uart_0_clear_buffer();
 		uart_0_write("AT+CIICR");
 		uart_0_print_char(13);
 		uart_0_write("\n");
 }
 void Put_AT_CIPSTART(char *IP_ADDRESS, char *PORT_NUMBER)
 {
+		uart_0_clear_buffer();
 		uart_0_write("AT+CIPSTART=");
 		uart_0_print_char(34); //quotation mark "
 		uart_0_write("TCP");
@@ -101,12 +114,14 @@ void Put_AT_CIPSTART(char *IP_ADDRESS, char *PORT_NUMBER)
 }
 void Put_AT_CIPSEND(void)
 {
+		uart_0_clear_buffer();
 		uart_0_write("AT+CIPSEND");
 		uart_0_print_char(13);
 		uart_0_write("\n");
 }
 void PUT_AT_CIFSR(void)
 {
+	uart_0_clear_buffer();
 	uart_0_write("AT+CIFSR");
 	uart_0_print_char(13);
 	uart_0_write("\n");
@@ -123,7 +138,14 @@ void Send_Data_TCP_IP( int position, char *data)
 		uart_0_print_char(26);
 	}		
 }
+void Return_AT_Mode(void)
+{
+	uart_0_write("+++");
+	uart_0_print_char(13);
+	uart_0_write("\n");
+	
+}
 /*********************************************************************************************************************************************/
 
-/*									SMS COMMANDS	
+
 											
