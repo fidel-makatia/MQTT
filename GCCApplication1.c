@@ -8,7 +8,6 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include "Timer.h"
 #include "mqtt.h"
 #include "_uart.h"
 #include "GSM_LIBRARY.h"
@@ -84,7 +83,8 @@ int main(void)
 			{
 			
 				//Set_Up_Connection("safaricom","saf","data","m11.cloudmqtt.com","19781");
-				Set_Up_Connection("internet","","","m11.cloudmqtt.com","19781");
+				//Set
+				//Set_Up_Connection("internet","","","m11.cloudmqtt.com","19781");
 				
 				if(Retry_1 == 10)
 				{
@@ -281,7 +281,7 @@ void connectMQTT(void)
 		}
 	}
 }
-void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIPAddress, char *PortNumber)
+void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIPAddress_1, char *PortNumber_1,char *serverIPAddress_2,char *PortNumber_2)
 {
 	if(data_is_sending==1)
 	{
@@ -296,7 +296,7 @@ void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIP
 
 		if(setup_Position == 1)
 		{
-			Put_AT_CIPMUX();
+			PUT_AT_CIPMUX_MULTI();
 			strcpy(Response,"OK");
 		}
 		if(setup_Position == 2)
@@ -321,11 +321,16 @@ void Set_Up_Connection(char *APN, char *userName, char *password, char *serverIP
 		}
 		if(setup_Position == 6)
 		{
-			Put_AT_CIPSTART(serverIPAddress,PortNumber);
+			PUT_AT_CIPSTART_MULTIPLE(0, serverIPAddress_1, PortNumber_1);
+			strcpy(Response,"OK");
+		}
+		if(setup_Position == 7)
+		{
+			PUT_AT_CIPSTART_MULTIPLE(1, serverIPAddress_2, PortNumber_2);
 			strcpy(Response,"OK");
 		}
 	
-		if(setup_Position == 7)
+		if(setup_Position == 8)
 		{
 			//uart_0_write("position 7");
 			uart_0_clear_buffer();
